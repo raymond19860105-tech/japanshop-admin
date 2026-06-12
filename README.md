@@ -9,7 +9,7 @@
 GitHub Pages 開啟後，後台網址會像：
 
 ```text
-https://你的GitHub帳號.github.io/japanshop-admin/
+https://raymond19860105-tech.github.io/japanshop-admin/
 ```
 
 ## 不用上傳到 GitHub 的檔案
