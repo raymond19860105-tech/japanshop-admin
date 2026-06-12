@@ -66,6 +66,7 @@
       .button.primary { color: #fff; background: #111; }
       .button.danger { border-color: var(--danger); color: var(--danger); }
       .button:disabled { opacity: .45; cursor: not-allowed; }
+      .button.is-loading { opacity: .65; pointer-events: none; }
 
       main {
         max-width: 1180px;
@@ -431,8 +432,6 @@
           showSetup("Supabase 套件載入失敗，請確認後台頁面可以連到 cdn.jsdelivr.net。");
           return;
         }
-        document.getElementById("refreshButton").disabled = false;
-        document.getElementById("seedButton").disabled = false;
         bindEvents();
         const { data } = await client.auth.getSession();
         session = data.session;
@@ -474,13 +473,15 @@
         document.getElementById("settingsPanel").classList.toggle("hidden", !loggedIn);
         document.getElementById("productsPanel").classList.toggle("hidden", !loggedIn);
         document.getElementById("signOutButton").hidden = !loggedIn;
+        document.getElementById("refreshButton").disabled = !loggedIn;
+        document.getElementById("seedButton").disabled = !loggedIn;
         if (loggedIn) loadAdminData();
       }
 
       async function loadAdminData() {
         if (!session) return;
         const [{ data: settings, error: settingsError }, { data: productRows, error: productsError }] = await Promise.all([
-          client.from("shop_settings").select("*").eq("id", 1).single(),
+          client.from("shop_settings").select("*").eq("id", 1).maybeSingle(),
           client.from("products").select("*").order("section").order("sort_order").order("created_at")
         ]);
         if (settingsError) return setStatus(settingsError.message, true);
@@ -497,12 +498,17 @@
         }
       }
 
-      async function saveSettings() {
-        const payload = { id: 1 };
-        for (const key of Object.keys(defaultSettings)) payload[key] = document.getElementById(key).value;
-        const { error } = await client.from("shop_settings").upsert(payload);
-        if (error) return setStatus(error.message, true);
-        setStatus("網站內容已儲存，前台會同步讀取。");
+      async function saveSettings(event) {
+        if (!requireSession()) return false;
+        const button = event?.currentTarget || null;
+        return runWithButton(button, "儲存中...", "網站內容已儲存，前台會同步讀取。", async () => {
+          const payload = { id: 1 };
+          for (const key of Object.keys(defaultSettings)) payload[key] = document.getElementById(key).value;
+          const { data, error } = await client.from("shop_settings").upsert(payload).select("id").single();
+          if (error) throw error;
+          if (!data) throw new Error("沒有儲存成功，請重新登入後再試。");
+          return true;
+        });
       }
 
       async function uploadHeroImage(event) {
@@ -559,56 +565,70 @@
         return `<label class="full">${label}<textarea data-field="${name}">${escapeHTML((value || []).join("\n"))}</textarea></label>`;
       }
 
-      async function createProduct() {
-        const { error } = await client.from("products").insert({
-          name: "新商品名稱",
-          price: "NT$ 0",
-          section: "new",
-          category: "日本選物",
-          kind: "商品類型",
-          tags: ["#日本選物"],
-          bullets: ["輸入商品特色。"],
-          offers: ["滿額免運"],
-          active: true,
-          sort_order: products.length + 1
+      async function createProduct(event) {
+        if (!requireSession()) return;
+        const button = event?.currentTarget || null;
+        await runWithButton(button, "新增中...", "商品已新增。", async () => {
+          const { data, error } = await client.from("products").insert({
+            name: "新商品名稱",
+            price: "NT$ 0",
+            section: "new",
+            category: "日本選物",
+            kind: "商品類型",
+            tags: ["#日本選物"],
+            bullets: ["輸入商品特色。"],
+            offers: ["滿額免運"],
+            active: true,
+            sort_order: products.length + 1
+          }).select("id").single();
+          if (error) throw error;
+          if (!data) throw new Error("商品沒有新增成功，請重新登入後再試。");
+          await loadAdminData();
         });
-        if (error) return setStatus(error.message, true);
-        await loadAdminData();
       }
 
       async function handleProductClick(event) {
         const action = event.target.dataset.action;
         const card = event.target.closest(".product-card");
         if (!action || !card) return;
-        if (action === "save") return saveProduct(card);
+        if (action === "save") return saveProduct(card, event.target);
         if (action === "delete") return deleteProduct(card.dataset.id);
       }
 
       async function handleProductChange(event) {
         if (event.target.dataset.file !== "image") return;
+        if (!requireSession()) return;
         const card = event.target.closest(".product-card");
         const file = event.target.files[0];
         if (!card || !file) return;
         const publicUrl = await uploadImage(file, "products");
         if (!publicUrl) return;
-        const { error } = await client.from("products").update({ image_url: publicUrl }).eq("id", card.dataset.id);
+        const { data, error } = await client.from("products").update({ image_url: publicUrl }).eq("id", card.dataset.id).select("id").single();
         if (error) return setStatus(error.message, true);
+        if (!data) return setStatus("圖片網址沒有儲存成功，請重新登入後再試。", true);
         await loadAdminData();
         event.target.value = "";
       }
 
-      async function saveProduct(card) {
-        const payload = collectProduct(card);
-        const { error } = await client.from("products").update(payload).eq("id", card.dataset.id);
-        if (error) return setStatus(error.message, true);
-        await loadAdminData();
+      async function saveProduct(card, button) {
+        if (!requireSession()) return;
+        await runWithButton(button, "儲存商品中...", "商品已儲存。", async () => {
+          const payload = collectProduct(card);
+          const { data, error } = await client.from("products").update(payload).eq("id", card.dataset.id).select("id").single();
+          if (error) throw error;
+          if (!data) throw new Error("商品沒有儲存成功，請重新登入後再試。");
+          await loadAdminData();
+        });
       }
 
       async function deleteProduct(id) {
+        if (!requireSession()) return;
         if (!confirm("確定刪除這個商品嗎？")) return;
-        const { error } = await client.from("products").delete().eq("id", id);
+        const { data, error } = await client.from("products").delete().eq("id", id).select("id").single();
         if (error) return setStatus(error.message, true);
+        if (!data) return setStatus("商品沒有刪除成功，請重新登入後再試。", true);
         await loadAdminData();
+        setStatus("商品已刪除。");
       }
 
       function collectProduct(card) {
@@ -639,10 +659,11 @@
         return data.publicUrl;
       }
 
-      async function seedSampleData() {
+      async function seedSampleData(event) {
+        if (!requireSession()) return;
         if (!confirm("匯入範例資料會清空目前商品，確定繼續嗎？")) return;
-        setStatus("正在上傳範例圖片與商品資料...");
-        try {
+        const button = event?.currentTarget || null;
+        await runWithButton(button, "正在匯入...", "範例資料已匯入，前台重新整理即可看到。", async () => {
           const seedAssets = JSON.parse(document.getElementById("seedAssets").textContent);
           const heroUrl = await uploadDataUrl(seedAssets["hero-japan-shop"], "hero/hero-japan-shop.jpg");
           const imageCache = {};
@@ -652,18 +673,17 @@
             }
           }
           const settings = { ...defaultSettings, id: 1, hero_image_url: heroUrl };
-          const { error: settingsError } = await client.from("shop_settings").upsert(settings);
-          if (settingsError) return setStatus(settingsError.message, true);
+          const { data: settingsData, error: settingsError } = await client.from("shop_settings").upsert(settings).select("id").single();
+          if (settingsError) throw settingsError;
+          if (!settingsData) throw new Error("網站內容沒有匯入成功，請重新登入後再試。");
           const { error: deleteError } = await client.from("products").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-          if (deleteError) return setStatus(deleteError.message, true);
+          if (deleteError) throw deleteError;
           const rows = seedProducts.map(({ asset, ...item }) => ({ ...item, image_url: imageCache[asset], active: true }));
-          const { error: productError } = await client.from("products").insert(rows);
-          if (productError) return setStatus(productError.message, true);
+          const { data: productData, error: productError } = await client.from("products").insert(rows).select("id");
+          if (productError) throw productError;
+          if (!productData?.length) throw new Error("商品沒有匯入成功，請重新登入後再試。");
           await loadAdminData();
-          setStatus("範例資料已匯入，前台重新整理即可看到。");
-        } catch (error) {
-          setStatus(error.message || "範例資料匯入失敗。", true);
-        }
+        });
       }
 
       async function uploadDataUrl(dataUrl, path) {
@@ -687,6 +707,36 @@
         const notice = document.getElementById("setupNotice");
         notice.textContent = message;
         notice.hidden = !message;
+      }
+
+      function requireSession() {
+        if (session?.access_token) return true;
+        setStatus("請先登入後台，再按儲存。", true);
+        return false;
+      }
+
+      async function runWithButton(button, loadingText, successText, task) {
+        const originalText = button?.textContent;
+        if (button) {
+          button.disabled = true;
+          button.classList.add("is-loading");
+          button.textContent = loadingText;
+        }
+        setStatus(loadingText);
+        try {
+          const result = await task();
+          setStatus(successText);
+          return result;
+        } catch (error) {
+          setStatus(error.message || "操作失敗，請重新登入後再試。", true);
+          return false;
+        } finally {
+          if (button) {
+            button.disabled = false;
+            button.classList.remove("is-loading");
+            button.textContent = originalText;
+          }
+        }
       }
 
       function setStatus(message, isError = false) {
