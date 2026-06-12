@@ -105,6 +105,32 @@
       .panel h2 { margin: 0 0 18px; font-size: 24px; }
       .panel h3 { margin: 0 0 14px; font-size: 18px; }
 
+      .guide-box {
+        margin: 0 0 18px;
+        padding: 16px;
+        border: 1px solid #eadfa9;
+        border-radius: 8px;
+        background: var(--warm);
+        color: #443d20;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .guide-box h3 { margin: 0 0 8px; font-size: 16px; }
+      .guide-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 18px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 750;
+        line-height: 1.55;
+      }
+
       .grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -177,6 +203,7 @@
         .admin-header { align-items: flex-start; flex-direction: column; padding: 16px; }
         .header-actions { flex-wrap: wrap; }
         main { padding: 18px; }
+        .guide-grid { grid-template-columns: 1fr; }
         .grid, .product-card, .product-fields { grid-template-columns: 1fr; }
         .product-thumb { width: 100%; }
       }
@@ -220,42 +247,60 @@
 
       <section class="panel hidden" id="settingsPanel">
         <h2>網站內容</h2>
+        <div class="guide-box">
+          <h3>首頁圖片與文字規範</h3>
+          <ul class="guide-grid">
+            <li>首頁大圖建議 1920 x 1080 或 1920 x 1200，JPG / PNG / WebP，檔案限制 1.5MB 內。</li>
+            <li>圖片主體放中間偏右，左側保留標題空間，手機版比較不會壓到文字。</li>
+            <li>不要把促銷文字直接做進圖片，文字請填在下方欄位，之後比較好修改。</li>
+            <li>首頁標題最多 46 字，首頁描述最多 90 字，適合做成溫柔、清楚的品牌口吻。</li>
+          </ul>
+        </div>
         <div class="grid">
           <label>
             網站名稱
-            <input id="site_name" type="text" />
+            <input id="site_name" type="text" maxlength="20" />
+            <span class="hint">建議 6-12 字，最多 20 字。</span>
           </label>
           <label>
             副標
-            <input id="site_subtitle" type="text" />
+            <input id="site_subtitle" type="text" maxlength="30" />
+            <span class="hint">最多 30 字，會顯示在品牌名稱下方。</span>
           </label>
           <label class="full">
             桌面促銷文字
-            <input id="desktop_promo" type="text" />
+            <input id="desktop_promo" type="text" maxlength="36" />
+            <span class="hint">最多 36 字，桌機版上方促銷列。</span>
           </label>
           <label class="full">
             手機促銷文字
-            <input id="mobile_promo" type="text" />
+            <input id="mobile_promo" type="text" maxlength="28" />
+            <span class="hint">最多 28 字，手機畫面較窄，建議更短。</span>
           </label>
           <label>
             首頁小標
-            <input id="hero_eyebrow" type="text" />
+            <input id="hero_eyebrow" type="text" maxlength="24" />
+            <span class="hint">最多 24 字，例如：日本代購選物。</span>
           </label>
           <label>
             首頁標題
-            <textarea id="hero_title"></textarea>
+            <textarea id="hero_title" maxlength="46"></textarea>
+            <span class="hint">最多 46 字，可換行。</span>
           </label>
           <label class="full">
             首頁描述
-            <textarea id="hero_text"></textarea>
+            <textarea id="hero_text" maxlength="90"></textarea>
+            <span class="hint">最多 90 字，建議 1-2 句說清楚服務特色。</span>
           </label>
           <label class="full">
             首頁大圖網址
             <input id="hero_image_url" type="text" />
+            <span class="hint">可貼 Supabase 圖片網址，或直接使用下方上傳。</span>
           </label>
           <label class="full">
             上傳首頁大圖
-            <input id="heroImageUpload" type="file" accept="image/*" />
+            <input id="heroImageUpload" type="file" accept="image/jpeg,image/png,image/webp" />
+            <span class="hint">限制 JPG / PNG / WebP，1.5MB 內。</span>
           </label>
         </div>
         <div class="product-actions">
@@ -265,6 +310,15 @@
 
       <section class="panel hidden" id="productsPanel">
         <h2>商品管理</h2>
+        <div class="guide-box">
+          <h3>商品新增規範</h3>
+          <ul class="guide-grid">
+            <li>商品圖建議 1200 x 1400 直式構圖，JPG / PNG / WebP，檔案限制 800KB 內。</li>
+            <li>商品名稱建議 8-18 字，最多 24 字；標籤最多 4 字，例如「新品」「限定」。</li>
+            <li>商品標籤最多 4 個，每行一個；商品特色最多 4 點，每點最多 45 字。</li>
+            <li>相關優惠最多 3 個，每個最多 20 字，適合填滿額免運、組合價、加購優惠。</li>
+          </ul>
+        </div>
         <div class="product-actions">
           <button class="button primary" id="newProductButton" type="button">新增商品</button>
         </div>
@@ -284,6 +338,12 @@
       const client = configured && supabaseLib ? supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
       let products = [];
       let session = null;
+
+      const imageRules = {
+        hero: { label: "首頁大圖", maxSize: 1.5 * 1024 * 1024, maxSizeText: "1.5MB" },
+        products: { label: "商品圖", maxSize: 800 * 1024, maxSizeText: "800KB" }
+      };
+      const allowedImageTypes = ["image/jpeg", "image/png", "image/webp"];
 
       const defaultSettings = {
         site_name: "遛遛日本小舖",
@@ -504,11 +564,25 @@
         return runWithButton(button, "儲存中...", "網站內容已儲存，前台會同步讀取。", async () => {
           const payload = { id: 1 };
           for (const key of Object.keys(defaultSettings)) payload[key] = document.getElementById(key).value;
+          validateSettingsPayload(payload);
           const { data, error } = await client.from("shop_settings").upsert(payload).select("id").single();
           if (error) throw error;
           if (!data) throw new Error("沒有儲存成功，請重新登入後再試。");
           return true;
         });
+      }
+
+      function validateSettingsPayload(payload) {
+        const errors = [];
+        assertRequired(errors, "網站名稱", payload.site_name);
+        assertText(errors, "網站名稱", payload.site_name, 20);
+        assertText(errors, "副標", payload.site_subtitle, 30);
+        assertText(errors, "桌面促銷文字", payload.desktop_promo, 36);
+        assertText(errors, "手機促銷文字", payload.mobile_promo, 28);
+        assertText(errors, "首頁小標", payload.hero_eyebrow, 24);
+        assertText(errors, "首頁標題", payload.hero_title, 46);
+        assertText(errors, "首頁描述", payload.hero_text, 90);
+        if (errors.length) throw new Error(errors.join(" "));
       }
 
       async function uploadHeroImage(event) {
@@ -532,21 +606,21 @@
             <div class="product-thumb">${product.image_url ? `<img src="${escapeHTML(product.image_url)}" alt="${escapeHTML(product.name)}" />` : `<div class="placeholder">尚無圖片</div>`}</div>
             <div>
               <div class="product-fields">
-                ${field("商品名稱", "name", product.name)}
-                ${field("售價", "price", product.price)}
-                ${field("原價", "old_price", product.old_price || "")}
-                <label>區塊<select data-field="section"><option value="new" ${product.section === "new" ? "selected" : ""}>新品上市</option><option value="recommended" ${product.section === "recommended" ? "selected" : ""}>推薦專區</option></select></label>
-                ${field("標籤", "badge", product.badge || "")}
-                ${field("排序", "sort_order", product.sort_order ?? 0, "number")}
-                ${field("分類", "category", product.category || "")}
-                ${field("類型", "kind", product.kind || "")}
-                ${field("SKU", "sku", product.sku || "")}
-                <label>是否顯示<select data-field="active"><option value="true" ${product.active ? "selected" : ""}>顯示</option><option value="false" ${!product.active ? "selected" : ""}>隱藏</option></select></label>
-                <label class="full">商品圖網址<input data-field="image_url" type="text" value="${escapeAttr(product.image_url || "")}" /></label>
-                <label class="full">上傳商品圖<input data-file="image" type="file" accept="image/*" /></label>
-                ${textarea("商品標籤，每行一個", "tags", product.tags || [])}
-                ${textarea("商品特色，每行一點", "bullets", product.bullets || [])}
-                ${textarea("相關優惠，每行一個", "offers", product.offers || [])}
+                ${field("商品名稱", "name", product.name, "text", { maxlength: 24, hint: "建議 8-18 字，最多 24 字。" })}
+                ${field("售價", "price", product.price, "text", { maxlength: 16, hint: "格式建議：NT$ 880。" })}
+                ${field("原價", "old_price", product.old_price || "", "text", { maxlength: 16, hint: "可空白，格式建議：NT$ 1,080。" })}
+                <label>區塊<select data-field="section"><option value="new" ${product.section === "new" ? "selected" : ""}>新品上市</option><option value="recommended" ${product.section === "recommended" ? "selected" : ""}>推薦專區</option></select><span class="hint">決定商品出現在前台哪一個區塊。</span></label>
+                ${field("標籤", "badge", product.badge || "", "text", { maxlength: 4, hint: "最多 4 字，例如：新品、限定、熱銷。" })}
+                ${field("排序", "sort_order", product.sort_order ?? 0, "number", { min: 0, hint: "數字越小越前面。" })}
+                ${field("分類", "category", product.category || "", "text", { maxlength: 14, hint: "最多 14 字，例如：日本食品．伴手禮。" })}
+                ${field("類型", "kind", product.kind || "", "text", { maxlength: 12, hint: "最多 12 字，例如：米菓禮盒。" })}
+                ${field("SKU", "sku", product.sku || "", "text", { maxlength: 24, hint: "英文數字 24 字內，例如：JP-SNACK-002。" })}
+                <label>是否顯示<select data-field="active"><option value="true" ${product.active ? "selected" : ""}>顯示</option><option value="false" ${!product.active ? "selected" : ""}>隱藏</option></select><span class="hint">隱藏後前台不會顯示這項商品。</span></label>
+                <label class="full">商品圖網址<input data-field="image_url" type="text" value="${escapeAttr(product.image_url || "")}" /><span class="hint">商品圖建議 1200 x 1400 直式構圖，JPG / PNG / WebP，800KB 內。</span></label>
+                <label class="full">上傳商品圖<input data-file="image" type="file" accept="image/jpeg,image/png,image/webp" /><span class="hint">主體置中、背景乾淨，避免把文字壓在圖片上。</span></label>
+                ${textarea("商品標籤，每行一個", "tags", product.tags || [], { maxlength: 80, hint: "最多 4 個，每行一個，例如 #日本限定。" })}
+                ${textarea("商品特色，每行一點", "bullets", product.bullets || [], { maxlength: 220, hint: "最多 4 點，每點最多 45 字。前台會用條列顯示。" })}
+                ${textarea("相關優惠，每行一個", "offers", product.offers || [], { maxlength: 90, hint: "最多 3 個，每個最多 20 字。" })}
               </div>
               <div class="product-actions">
                 <button class="button primary" data-action="save" type="button">儲存商品</button>
@@ -557,12 +631,24 @@
         `;
       }
 
-      function field(label, name, value, type = "text") {
-        return `<label>${label}<input data-field="${name}" type="${type}" value="${escapeAttr(value)}" /></label>`;
+      function field(label, name, value, type = "text", options = {}) {
+        return `<label>${label}<input data-field="${name}" type="${type}" value="${escapeAttr(value)}"${inputAttrs(options)} />${hint(options.hint)}</label>`;
       }
 
-      function textarea(label, name, value) {
-        return `<label class="full">${label}<textarea data-field="${name}">${escapeHTML((value || []).join("\n"))}</textarea></label>`;
+      function textarea(label, name, value, options = {}) {
+        return `<label class="full">${label}<textarea data-field="${name}"${inputAttrs(options)}>${escapeHTML((value || []).join("\n"))}</textarea>${hint(options.hint)}</label>`;
+      }
+
+      function inputAttrs(options = {}) {
+        const attrs = [];
+        if (options.maxlength) attrs.push(`maxlength="${Number(options.maxlength)}"`);
+        if (options.min !== undefined) attrs.push(`min="${Number(options.min)}"`);
+        if (options.placeholder) attrs.push(`placeholder="${escapeAttr(options.placeholder)}"`);
+        return attrs.length ? ` ${attrs.join(" ")}` : "";
+      }
+
+      function hint(text) {
+        return text ? `<span class="hint">${escapeHTML(text)}</span>` : "";
       }
 
       async function createProduct(event) {
@@ -602,7 +688,10 @@
         const file = event.target.files[0];
         if (!card || !file) return;
         const publicUrl = await uploadImage(file, "products");
-        if (!publicUrl) return;
+        if (!publicUrl) {
+          event.target.value = "";
+          return;
+        }
         const { data, error } = await client.from("products").update({ image_url: publicUrl }).eq("id", card.dataset.id).select("id").single();
         if (error) return setStatus(error.message, true);
         if (!data) return setStatus("圖片網址沒有儲存成功，請重新登入後再試。", true);
@@ -614,6 +703,7 @@
         if (!requireSession()) return;
         await runWithButton(button, "儲存商品中...", "商品已儲存。", async () => {
           const payload = collectProduct(card);
+          validateProductPayload(payload);
           const { data, error } = await client.from("products").update(payload).eq("id", card.dataset.id).select("id").single();
           if (error) throw error;
           if (!data) throw new Error("商品沒有儲存成功，請重新登入後再試。");
@@ -643,7 +733,41 @@
         return payload;
       }
 
+      function validateProductPayload(payload) {
+        const errors = [];
+        assertRequired(errors, "商品名稱", payload.name);
+        assertRequired(errors, "售價", payload.price);
+        assertText(errors, "商品名稱", payload.name, 24);
+        assertText(errors, "售價", payload.price, 16);
+        assertText(errors, "原價", payload.old_price, 16);
+        assertText(errors, "標籤", payload.badge, 4);
+        assertText(errors, "分類", payload.category, 14);
+        assertText(errors, "類型", payload.kind, 12);
+        assertText(errors, "SKU", payload.sku, 24);
+        assertLines(errors, "商品標籤", payload.tags, 4, 12);
+        assertLines(errors, "商品特色", payload.bullets, 4, 45);
+        assertLines(errors, "相關優惠", payload.offers, 3, 20);
+        if (!["new", "recommended"].includes(payload.section)) errors.push("區塊設定不正確。");
+        if (!Number.isFinite(payload.sort_order) || payload.sort_order < 0) errors.push("排序請填 0 以上的數字。");
+        if (errors.length) throw new Error(errors.join(" "));
+      }
+
+      function assertRequired(errors, label, value) {
+        if (!String(value || "").trim()) errors.push(`${label}必填。`);
+      }
+
+      function assertText(errors, label, value, maxLength) {
+        if (String(value || "").length > maxLength) errors.push(`${label}最多 ${maxLength} 字。`);
+      }
+
+      function assertLines(errors, label, lines, maxLines, maxLength) {
+        if ((lines || []).length > maxLines) errors.push(`${label}最多 ${maxLines} 行。`);
+        const tooLong = (lines || []).find((line) => String(line).length > maxLength);
+        if (tooLong) errors.push(`${label}每行最多 ${maxLength} 字。`);
+      }
+
       async function uploadImage(file, folder) {
+        if (!validateImageFile(file, folder)) return "";
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
         const path = `${folder}/${Date.now()}-${safeName}`;
         const { error } = await client.storage.from(BUCKET).upload(path, file, {
@@ -657,6 +781,21 @@
         const { data } = client.storage.from(BUCKET).getPublicUrl(path);
         setStatus("圖片已上傳。");
         return data.publicUrl;
+      }
+
+      function validateImageFile(file, folder) {
+        const rule = imageRules[folder] || imageRules.products;
+        const typeAllowed = allowedImageTypes.includes(file.type);
+        const extensionAllowed = /\.(jpe?g|png|webp)$/i.test(file.name);
+        if (!typeAllowed && !extensionAllowed) {
+          setStatus(`${rule.label}只接受 JPG、PNG、WebP。`, true);
+          return false;
+        }
+        if (file.size > rule.maxSize) {
+          setStatus(`${rule.label}檔案太大，請壓到 ${rule.maxSizeText} 內再上傳。`, true);
+          return false;
+        }
+        return true;
       }
 
       async function seedSampleData(event) {
